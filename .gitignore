@@ -1,0 +1,50 @@
+# Binaries
+/kubectl-netpol
+kubectl-netpol
+kubectl-netpol.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# go test -c
+*.test
+
+# Coverage
+*.out
+coverage.html
+coverage/
+
+# Go workspace (local multi-module)
+go.work
+go.work.sum
+
+# Dependencies (if vendored locally)
+vendor/
+
+# Environment / credentials
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors (local only)
+.idea/
+*.swp
+*.swo
+*~
+
+# Local analyze output (ad-hoc runs at repo root)
+/netpol.html
+/netpol-table.txt
+/mermaid.txt
+/marmaid.txt
+
+# Temp
+*.md.bak
+tmp/
+/tmp/

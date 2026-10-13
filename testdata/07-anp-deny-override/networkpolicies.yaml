@@ -1,0 +1,25 @@
+# This NetworkPolicy was created before the incident.
+# It allows both frontend AND quarantine to reach backend.
+# The ANP quarantine-lockdown overrides this for quarantine — but frontend still works.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-and-legacy
+  namespace: backend
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: frontend
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: quarantine
+    ports:
+    - protocol: TCP
+      port: 8080

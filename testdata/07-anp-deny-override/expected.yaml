@@ -1,0 +1,57 @@
+scenario: "07-anp-deny-override"
+description: "ANP Deny overrides existing NetworkPolicy Allow — incident response quarantine pattern"
+key_insight: |
+  ANP is ALWAYS evaluated before NetworkPolicy. If ANP says Deny, NetworkPolicy is never
+  consulted — even if it has an explicit Allow rule for the same traffic.
+  This is the primary value of ANP for cluster admins: they can enforce cluster-wide
+  security policies that tenants cannot override with their own NetworkPolicies.
+
+  Real-world use case: during a security incident, a cluster admin applies an ANP to
+  quarantine a compromised namespace immediately, without having to modify every tenant's
+  NetworkPolicy one by one.
+
+tests:
+- from: "quarantine/app=compromised"
+  to: "backend/app=api"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: ANP
+  reason: |
+    quarantine-lockdown ANP (priority 5) denies ALL egress from quarantine namespace.
+    The NP allow-frontend-and-legacy WOULD allow this, but ANP is evaluated first.
+    ANP Deny is final — NP is never checked.
+
+- from: "frontend/app=web"
+  to: "backend/app=api"
+  port: 8080
+  protocol: TCP
+  expected: allow
+  layer: NetworkPolicy
+  reason: |
+    No ANP targets frontend as source (quarantine-lockdown only denies FROM quarantine).
+    NP allow-frontend-and-legacy allows frontend → backend:8080. Result: ALLOW.
+    This demonstrates surgical impact: quarantine only affects the quarantined namespace.
+
+- from: "backend/app=api"
+  to: "quarantine/app=compromised"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: ANP
+  reason: |
+    quarantine-lockdown ANP denies all ingress TO non-quarantine namespaces FROM quarantine.
+    But also: quarantine-egress-lockdown denies all egress FROM quarantine.
+    In this case, the ingress rule on backend's side would deny it.
+    Additionally, any response FROM quarantine would be blocked by egress lockdown.
+
+- from: "quarantine/app=compromised"
+  to: "quarantine/app=compromised"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: ANP
+  reason: |
+    quarantine-egress-lockdown denies ALL egress from quarantine to ALL namespaces ({}).
+    This includes egress to itself (self-communication).
+    Note: some CNIs may treat loopback differently. Behavior may vary.

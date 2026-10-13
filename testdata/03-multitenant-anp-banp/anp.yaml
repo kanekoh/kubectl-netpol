@@ -1,0 +1,120 @@
+# Priority 10: monitoring can reach all namespaces
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: allow-monitoring
+spec:
+  priority: 10
+  subject:
+    namespaces:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values: [monitoring]
+  ingress:
+  - name: allow-from-monitoring
+    action: Allow
+    from:
+    - namespaces:
+        matchLabels:
+          team: monitoring
+---
+# Priority 20: ingress-nginx can reach app namespaces on ports 80, 443
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: allow-ingress-nginx
+spec:
+  priority: 20
+  subject:
+    namespaces:
+      matchExpressions:
+      - key: env
+        operator: In
+        values: [app]
+  ingress:
+  - name: allow-from-ingress
+    action: Allow
+    from:
+    - namespaces:
+        matchLabels:
+          team: ingress
+    ports:
+    - portNumber:
+        protocol: TCP
+        port: 80
+    - portNumber:
+        protocol: TCP
+        port: 443
+---
+# Priority 30: deny all traffic from tenant-a to tenant-b
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: deny-cross-tenant-a
+spec:
+  priority: 30
+  subject:
+    namespaces:
+      matchLabels:
+        tenant: a
+  ingress:
+  - name: deny-from-tenant-b
+    action: Deny
+    from:
+    - namespaces:
+        matchLabels:
+          tenant: b
+  egress:
+  - name: deny-to-tenant-b
+    action: Deny
+    to:
+    - namespaces:
+        matchLabels:
+          tenant: b
+---
+# Priority 30: deny all traffic from tenant-b to tenant-a
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: deny-cross-tenant-b
+spec:
+  priority: 30
+  subject:
+    namespaces:
+      matchLabels:
+        tenant: b
+  ingress:
+  - name: deny-from-tenant-a
+    action: Deny
+    from:
+    - namespaces:
+        matchLabels:
+          tenant: a
+  egress:
+  - name: deny-to-tenant-a
+    action: Deny
+    to:
+    - namespaces:
+        matchLabels:
+          tenant: a
+---
+# Priority 50: pass everything else to NetworkPolicy
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: pass-to-networkpolicy
+spec:
+  priority: 50
+  subject:
+    namespaces: {}
+  ingress:
+  - name: pass-all-ingress
+    action: Pass
+    from:
+    - namespaces: {}
+  egress:
+  - name: pass-all-egress
+    action: Pass
+    to:
+    - namespaces: {}

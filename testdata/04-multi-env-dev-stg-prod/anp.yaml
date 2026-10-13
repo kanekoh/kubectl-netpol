@@ -1,0 +1,128 @@
+# Priority 5: monitoring can reach all namespaces
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: allow-monitoring
+spec:
+  priority: 5
+  subject:
+    namespaces:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values: [monitoring]
+  ingress:
+  - name: allow-from-monitoring
+    action: Allow
+    from:
+    - namespaces:
+        matchLabels:
+          team: monitoring
+---
+# Priority 10: cicd can deploy to staging and prod
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: allow-cicd-deploy
+spec:
+  priority: 10
+  subject:
+    namespaces:
+      matchExpressions:
+      - key: env
+        operator: In
+        values: [staging, prod]
+  ingress:
+  - name: allow-from-cicd
+    action: Allow
+    from:
+    - namespaces:
+        matchLabels:
+          team: cicd
+    ports:
+    - portNumber:
+        protocol: TCP
+        port: 8080
+---
+# Priority 20: dev cannot reach staging or prod
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: isolate-dev
+spec:
+  priority: 20
+  subject:
+    namespaces:
+      matchLabels:
+        env: dev
+  egress:
+  - name: deny-to-staging
+    action: Deny
+    to:
+    - namespaces:
+        matchLabels:
+          env: staging
+  - name: deny-to-prod
+    action: Deny
+    to:
+    - namespaces:
+        matchLabels:
+          env: prod
+---
+# Priority 20: prod is isolated from dev and staging
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: isolate-prod
+spec:
+  priority: 20
+  subject:
+    namespaces:
+      matchLabels:
+        env: prod
+  ingress:
+  - name: deny-from-dev
+    action: Deny
+    from:
+    - namespaces:
+        matchLabels:
+          env: dev
+  - name: deny-from-staging
+    action: Deny
+    from:
+    - namespaces:
+        matchLabels:
+          env: staging
+  egress:
+  - name: deny-to-dev
+    action: Deny
+    to:
+    - namespaces:
+        matchLabels:
+          env: dev
+  - name: deny-to-staging
+    action: Deny
+    to:
+    - namespaces:
+        matchLabels:
+          env: staging
+---
+# Priority 50: pass same-env and other in-cluster traffic to NetworkPolicy
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: pass-same-env
+spec:
+  priority: 50
+  subject:
+    namespaces: {}
+  ingress:
+  - name: pass-all-ingress
+    action: Pass
+    from:
+    - namespaces: {}
+  egress:
+  - name: pass-all-egress
+    action: Pass
+    to:
+    - namespaces: {}

@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Network Policy Connectivity</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #2563eb;
+      --edge-out: #2563eb;   /* egress from focused node */
+      --edge-in: #16a34a;    /* ingress into focused node */
+      --edge-spotlight: #d97706;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header { padding: 1.25rem 1.5rem 0.5rem; }
+    header h1 { margin: 0 0 0.35rem; font-size: 1.35rem; }
+    .legend { margin: 0; font-size: 0.9rem; color: var(--muted); }
+    .swatch {
+      display: inline-block;
+      width: 0.7rem; height: 0.7rem;
+      border-radius: 2px;
+      vertical-align: -1px;
+      margin: 0 0.15rem 0 0.55rem;
+    }
+    .swatch.out { background: var(--edge-out); }
+    .swatch.in { background: var(--edge-in); }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 1rem;
+      padding: 1rem 1.5rem 1.5rem;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    #graph {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow: auto;
+      min-height: 360px;
+    }
+    #panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      position: sticky;
+      top: 1rem;
+    }
+    #panel h2 { margin: 0 0 0.5rem; font-size: 1rem; }
+    #panel .hint {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin: 0 0 0.75rem;
+    }
+    #focus-name {
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      min-height: 1.25rem;
+    }
+    #conn-list { list-style: none; margin: 0; padding: 0; }
+    #conn-list li {
+      border-top: 1px solid var(--border);
+      border-left: 3px solid transparent;
+      padding: 0.55rem 0.5rem;
+      font-size: 0.9rem;
+      line-height: 1.35;
+      cursor: pointer;
+      border-radius: 0 4px 4px 0;
+    }
+    #conn-list li.dir-out { border-left-color: var(--edge-out); }
+    #conn-list li.dir-in { border-left-color: var(--edge-in); }
+    #conn-list li:hover,
+    #conn-list li.active {
+      background: #f1f5f9;
+    }
+    #conn-list .dir {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-weight: 600;
+    }
+    #conn-list li.dir-out .dir { color: var(--edge-out); }
+    #conn-list li.dir-in .dir { color: var(--edge-in); }
+    #conn-list .peer { font-weight: 500; }
+    #conn-list .meta {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .node-dimmed { opacity: 0.14 !important; }
+    path.edge-dimmed {
+      opacity: 0.08 !important;
+      stroke-opacity: 0.08 !important;
+    }
+    path.edge-out {
+      stroke: var(--edge-out) !important;
+      stroke-width: 2.75px !important;
+      opacity: 1 !important;
+      stroke-opacity: 1 !important;
+    }
+    path.edge-in {
+      stroke: var(--edge-in) !important;
+      stroke-width: 2.75px !important;
+      opacity: 1 !important;
+      stroke-opacity: 1 !important;
+    }
+    path.edge-spotlight {
+      stroke: var(--edge-spotlight) !important;
+      stroke-width: 4.5px !important;
+      opacity: 1 !important;
+      stroke-opacity: 1 !important;
+    }
+    .pinned-source > rect,
+    .pinned-source > polygon {
+      stroke: var(--accent) !important;
+      stroke-width: 3px !important;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Network Policy Connectivity</h1>
+    <p class="legend">
+      Allow paths only. Hover a node to focus neighbors.
+      <span class="swatch out"></span>OUT (egress)
+      <span class="swatch in"></span>IN (ingress).
+      Hover a panel row to spotlight that edge (amber). Click node to pin.
+    </p>
+  </header>
+  <div class="layout">
+    <div id="graph">
+      <pre class="mermaid">
+flowchart LR
+
+  subgraph ingress_nginx["ingress-nginx"]
+    ingress_nginx_app_nginx["app=nginx"]
+  end
+  subgraph monitoring["monitoring"]
+    monitoring_app_prometheus["app=prometheus"]
+  end
+  subgraph tenant_a_app["tenant-a-app"]
+    tenant_a_app_app_api["app=api"]
+  end
+  subgraph tenant_a_db["tenant-a-db"]
+    tenant_a_db_app_postgres["app=postgres"]
+  end
+  subgraph tenant_b_app["tenant-b-app"]
+    tenant_b_app_app_api["app=api"]
+  end
+  subgraph tenant_b_db["tenant-b-db"]
+    tenant_b_db_app_postgres["app=postgres"]
+  end
+
+  ingress_nginx_app_nginx --> monitoring_app_prometheus
+  ingress_nginx_app_nginx --> tenant_a_app_app_api
+  ingress_nginx_app_nginx --> tenant_b_app_app_api
+  monitoring_app_prometheus --> ingress_nginx_app_nginx
+  monitoring_app_prometheus --> tenant_a_app_app_api
+  monitoring_app_prometheus --> tenant_a_db_app_postgres
+  monitoring_app_prometheus --> tenant_b_app_app_api
+  monitoring_app_prometheus --> tenant_b_db_app_postgres
+  tenant_a_app_app_api --> ingress_nginx_app_nginx
+  tenant_a_app_app_api --> monitoring_app_prometheus
+  tenant_a_app_app_api --> tenant_a_db_app_postgres
+  tenant_a_db_app_postgres --> ingress_nginx_app_nginx
+  tenant_a_db_app_postgres --> monitoring_app_prometheus
+  tenant_a_db_app_postgres --> tenant_a_app_app_api
+  tenant_b_app_app_api --> ingress_nginx_app_nginx
+  tenant_b_app_app_api --> monitoring_app_prometheus
+  tenant_b_app_app_api --> tenant_b_db_app_postgres
+  tenant_b_db_app_postgres --> ingress_nginx_app_nginx
+  tenant_b_db_app_postgres --> monitoring_app_prometheus
+  tenant_b_db_app_postgres --> tenant_b_app_app_api
+
+  %% Only allowed connections shown. Use -o table for full Allow/Deny matrix.
+
+      </pre>
+    </div>
+    <aside id="panel">
+      <h2>Connections</h2>
+      <p class="hint" id="panel-hint">Hover or click a workload node.</p>
+      <div id="focus-name"></div>
+      <ul id="conn-list"></ul>
+    </aside>
+  </div>
+
+  <script>
+    const adjacency = {"ingress_nginx_app_nginx":["monitoring_app_prometheus","tenant_a_app_app_api","tenant_a_db_app_postgres","tenant_b_app_app_api","tenant_b_db_app_postgres"],"monitoring_app_prometheus":["ingress_nginx_app_nginx","tenant_a_app_app_api","tenant_a_db_app_postgres","tenant_b_app_app_api","tenant_b_db_app_postgres"],"tenant_a_app_app_api":["ingress_nginx_app_nginx","monitoring_app_prometheus","tenant_a_db_app_postgres"],"tenant_a_db_app_postgres":["ingress_nginx_app_nginx","monitoring_app_prometheus","tenant_a_app_app_api"],"tenant_b_app_app_api":["ingress_nginx_app_nginx","monitoring_app_prometheus","tenant_b_db_app_postgres"],"tenant_b_db_app_postgres":["ingress_nginx_app_nginx","monitoring_app_prometheus","tenant_b_app_app_api"]};
+    const edges = [{"src":"ingress_nginx_app_nginx","dst":"monitoring_app_prometheus","srcName":"ingress-nginx/app=nginx","dstName":"monitoring/app=prometheus","label":"any"},{"src":"ingress_nginx_app_nginx","dst":"tenant_a_app_app_api","srcName":"ingress-nginx/app=nginx","dstName":"tenant-a-app/app=api","label":"any [ANP]"},{"src":"ingress_nginx_app_nginx","dst":"tenant_b_app_app_api","srcName":"ingress-nginx/app=nginx","dstName":"tenant-b-app/app=api","label":"any [ANP]"},{"src":"monitoring_app_prometheus","dst":"ingress_nginx_app_nginx","srcName":"monitoring/app=prometheus","dstName":"ingress-nginx/app=nginx","label":"any [ANP]"},{"src":"monitoring_app_prometheus","dst":"tenant_a_app_app_api","srcName":"monitoring/app=prometheus","dstName":"tenant-a-app/app=api","label":"any [ANP]"},{"src":"monitoring_app_prometheus","dst":"tenant_a_db_app_postgres","srcName":"monitoring/app=prometheus","dstName":"tenant-a-db/app=postgres","label":"any [ANP]"},{"src":"monitoring_app_prometheus","dst":"tenant_b_app_app_api","srcName":"monitoring/app=prometheus","dstName":"tenant-b-app/app=api","label":"any [ANP]"},{"src":"monitoring_app_prometheus","dst":"tenant_b_db_app_postgres","srcName":"monitoring/app=prometheus","dstName":"tenant-b-db/app=postgres","label":"any [ANP]"},{"src":"tenant_a_app_app_api","dst":"ingress_nginx_app_nginx","srcName":"tenant-a-app/app=api","dstName":"ingress-nginx/app=nginx","label":"any"},{"src":"tenant_a_app_app_api","dst":"monitoring_app_prometheus","srcName":"tenant-a-app/app=api","dstName":"monitoring/app=prometheus","label":"any"},{"src":"tenant_a_app_app_api","dst":"tenant_a_db_app_postgres","srcName":"tenant-a-app/app=api","dstName":"tenant-a-db/app=postgres","label":"any [NP]"},{"src":"tenant_a_db_app_postgres","dst":"ingress_nginx_app_nginx","srcName":"tenant-a-db/app=postgres","dstName":"ingress-nginx/app=nginx","label":"any"},{"src":"tenant_a_db_app_postgres","dst":"monitoring_app_prometheus","srcName":"tenant-a-db/app=postgres","dstName":"monitoring/app=prometheus","label":"any"},{"src":"tenant_a_db_app_postgres","dst":"tenant_a_app_app_api","srcName":"tenant-a-db/app=postgres","dstName":"tenant-a-app/app=api","label":"any"},{"src":"tenant_b_app_app_api","dst":"ingress_nginx_app_nginx","srcName":"tenant-b-app/app=api","dstName":"ingress-nginx/app=nginx","label":"any"},{"src":"tenant_b_app_app_api","dst":"monitoring_app_prometheus","srcName":"tenant-b-app/app=api","dstName":"monitoring/app=prometheus","label":"any"},{"src":"tenant_b_app_app_api","dst":"tenant_b_db_app_postgres","srcName":"tenant-b-app/app=api","dstName":"tenant-b-db/app=postgres","label":"any [NP]"},{"src":"tenant_b_db_app_postgres","dst":"ingress_nginx_app_nginx","srcName":"tenant-b-db/app=postgres","dstName":"ingress-nginx/app=nginx","label":"any"},{"src":"tenant_b_db_app_postgres","dst":"monitoring_app_prometheus","srcName":"tenant-b-db/app=postgres","dstName":"monitoring/app=prometheus","label":"any"},{"src":"tenant_b_db_app_postgres","dst":"tenant_b_app_app_api","srcName":"tenant-b-db/app=postgres","dstName":"tenant-b-app/app=api","label":"any"}];
+    const nodes = {"ingress_nginx_app_nginx":"ingress-nginx/app=nginx","monitoring_app_prometheus":"monitoring/app=prometheus","tenant_a_app_app_api":"tenant-a-app/app=api","tenant_a_db_app_postgres":"tenant-a-db/app=postgres","tenant_b_app_app_api":"tenant-b-app/app=api","tenant_b_db_app_postgres":"tenant-b-db/app=postgres"};
+
+    const nodeIds = new Set(Object.keys(nodes));
+    edges.forEach(function(e) {
+      nodeIds.add(e.src);
+      nodeIds.add(e.dst);
+    });
+
+    let pinnedNode = null;
+    let focusNode = null;
+    let edgePaths = [];
+    let nodeElems = null;
+    // pathEl -> { src, dst } resolved once after render
+    let pathMeta = [];
+
+    mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
+    mermaid.run({ nodes: document.querySelectorAll('.mermaid') }).then(function() {
+      setupHighlighting();
+    }).catch(function(e) {
+      console.error('Mermaid render error:', e);
+    });
+
+    function extractNodeId(mermaidElemId) {
+      const m = mermaidElemId.match(/^flowchart-(.+)-\d+$/);
+      return m ? m[1] : mermaidElemId;
+    }
+
+    function collectEdgePaths(svg) {
+      const group = svg.querySelector('.edgePaths');
+      if (group) {
+        const direct = Array.from(group.querySelectorAll(':scope > path'));
+        if (direct.length) return direct;
+        return Array.from(group.querySelectorAll('path'));
+      }
+      let paths = Array.from(svg.querySelectorAll('g.edgePath > path'));
+      if (paths.length === 0) {
+        paths = Array.from(svg.querySelectorAll('.edges path, path.flowchart-link'));
+      }
+      return paths;
+    }
+
+    function parseEndpoints(el) {
+      if (!el) return null;
+      const titleEl = el.querySelector ? el.querySelector('title') : null;
+      const title = titleEl ? titleEl.textContent : '';
+      if (title && title.indexOf('-->') >= 0) {
+        const parts = title.split('-->');
+        const src = (parts[0] || '').replace(/\s--[\s\S]*$/, '').trim();
+        const dst = (parts[1] || '').trim();
+        if (nodeIds.has(src) && nodeIds.has(dst)) return { src: src, dst: dst };
+      }
+      const id = el.id || '';
+      const start = id.indexOf('L-');
+      if (start < 0) return null;
+      const body = id.slice(start + 2);
+      const lastDash = body.lastIndexOf('-');
+      if (lastDash <= 0 || !/^\d+$/.test(body.slice(lastDash + 1))) return null;
+      const rest = body.slice(0, lastDash);
+      const ids = Array.from(nodeIds).sort(function(a, b) { return b.length - a.length; });
+      for (let i = 0; i < ids.length; i++) {
+        const src = ids[i];
+        const prefix = src + '-';
+        if (rest.indexOf(prefix) === 0) {
+          const dst = rest.slice(prefix.length);
+          if (nodeIds.has(dst)) return { src: src, dst: dst };
+        }
+      }
+      return null;
+    }
+
+    function buildPathMeta() {
+      pathMeta = edgePaths.map(function(el, i) {
+        return parseEndpoints(el) || (i < edges.length ? { src: edges[i].src, dst: edges[i].dst } : null);
+      });
+    }
+
+    function findPathIndex(src, dst) {
+      for (let i = 0; i < pathMeta.length; i++) {
+        const m = pathMeta[i];
+        if (m && m.src === src && m.dst === dst) return i;
+      }
+      return -1;
+    }
+
+    function clearEdgeClasses() {
+      edgePaths.forEach(function(el) {
+        el.classList.remove('edge-dimmed', 'edge-out', 'edge-in', 'edge-spotlight');
+      });
+    }
+
+    function applyFocusColors(nodeId) {
+      edgePaths.forEach(function(el, i) {
+        const m = pathMeta[i];
+        el.classList.remove('edge-dimmed', 'edge-out', 'edge-in', 'edge-spotlight');
+        if (!m) {
+          el.classList.add('edge-dimmed');
+          return;
+        }
+        if (m.src === nodeId) {
+          el.classList.add('edge-out');
+        } else if (m.dst === nodeId) {
+          el.classList.add('edge-in');
+        } else {
+          el.classList.add('edge-dimmed');
+        }
+      });
+    }
+
+    function spotlightEdge(src, dst, dir) {
+      // Keep IN/OUT coloring for other focus edges; amber the selected one.
+      if (focusNode) {
+        applyFocusColors(focusNode);
+      } else {
+        clearEdgeClasses();
+      }
+      const idx = findPathIndex(src, dst);
+      if (idx < 0) return;
+      const el = edgePaths[idx];
+      el.classList.remove('edge-dimmed', 'edge-out', 'edge-in');
+      el.classList.add('edge-spotlight');
+      // Preserve a hint of direction via CSS variable override
+      if (dir === 'out') {
+        el.style.stroke = getComputedStyle(document.documentElement).getPropertyValue('--edge-out').trim();
+      } else if (dir === 'in') {
+        el.style.stroke = getComputedStyle(document.documentElement).getPropertyValue('--edge-in').trim();
+      }
+      el.style.strokeWidth = '4.5px';
+    }
+
+    function clearSpotlightStyle() {
+      edgePaths.forEach(function(el) {
+        el.style.stroke = '';
+        el.style.strokeWidth = '';
+      });
+      if (focusNode) {
+        applyFocusColors(focusNode);
+      } else {
+        clearEdgeClasses();
+      }
+    }
+
+    function showPanel(nodeId) {
+      const nameEl = document.getElementById('focus-name');
+      const listEl = document.getElementById('conn-list');
+      const hintEl = document.getElementById('panel-hint');
+      nameEl.textContent = nodes[nodeId] || nodeId;
+      hintEl.textContent = 'Hover a row to color that edge. OUT=blue, IN=green.';
+      listEl.innerHTML = '';
+
+      const related = edges.filter(function(e) {
+        return e.src === nodeId || e.dst === nodeId;
+      });
+      if (related.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'No Allow edges.';
+        listEl.appendChild(li);
+        return;
+      }
+
+      related.forEach(function(e) {
+        const outbound = e.src === nodeId;
+        const li = document.createElement('li');
+        li.className = outbound ? 'dir-out' : 'dir-in';
+        li.dataset.src = e.src;
+        li.dataset.dst = e.dst;
+        li.dataset.dir = outbound ? 'out' : 'in';
+
+        const dir = document.createElement('div');
+        dir.className = 'dir';
+        dir.textContent = outbound ? 'OUT →' : '← IN';
+        const peer = document.createElement('div');
+        peer.className = 'peer';
+        peer.textContent = outbound ? e.dstName : e.srcName;
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = e.label;
+
+        li.appendChild(dir);
+        li.appendChild(peer);
+        li.appendChild(meta);
+
+        li.addEventListener('mouseenter', function() {
+          li.classList.add('active');
+          spotlightEdge(e.src, e.dst, outbound ? 'out' : 'in');
+        });
+        li.addEventListener('mouseleave', function() {
+          li.classList.remove('active');
+          clearSpotlightStyle();
+        });
+
+        listEl.appendChild(li);
+      });
+    }
+
+    function clearPanel() {
+      document.getElementById('focus-name').textContent = '';
+      document.getElementById('panel-hint').textContent = 'Hover or click a workload node.';
+      document.getElementById('conn-list').innerHTML = '';
+    }
+
+    function highlightNode(nodeId) {
+      focusNode = nodeId;
+      const neighbors = new Set(adjacency[nodeId] || []);
+      nodeElems.forEach(function(el) {
+        const id = extractNodeId(el.id || '');
+        el.classList.toggle('node-dimmed', !(id === nodeId || neighbors.has(id)));
+      });
+      applyFocusColors(nodeId);
+      showPanel(nodeId);
+    }
+
+    function clearHighlight() {
+      focusNode = null;
+      nodeElems.forEach(function(el) { el.classList.remove('node-dimmed'); });
+      clearEdgeClasses();
+      edgePaths.forEach(function(el) {
+        el.style.stroke = '';
+        el.style.strokeWidth = '';
+      });
+      clearPanel();
+    }
+
+    function setupHighlighting() {
+      const svg = document.querySelector('#graph svg');
+      if (!svg) return;
+
+      nodeElems = svg.querySelectorAll('g.node');
+      edgePaths = collectEdgePaths(svg);
+      buildPathMeta();
+
+      nodeElems.forEach(function(nodeEl) {
+        const nodeId = extractNodeId(nodeEl.id || '');
+        nodeEl.style.cursor = 'pointer';
+
+        nodeEl.addEventListener('mouseenter', function() {
+          if (pinnedNode) return;
+          highlightNode(nodeId);
+        });
+
+        nodeEl.addEventListener('mouseleave', function(e) {
+          if (pinnedNode) return;
+          // Allow moving into the side panel without clearing focus.
+          const to = e.relatedTarget;
+          if (to && document.getElementById('panel').contains(to)) return;
+          if (to && document.getElementById('graph').contains(to)) return;
+          clearHighlight();
+        });
+
+        nodeEl.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (pinnedNode === nodeId) {
+            pinnedNode = null;
+            nodeEl.classList.remove('pinned-source');
+            clearHighlight();
+          } else {
+            nodeElems.forEach(function(n) { n.classList.remove('pinned-source'); });
+            pinnedNode = nodeId;
+            nodeEl.classList.add('pinned-source');
+            highlightNode(nodeId);
+          }
+        });
+      });
+
+      svg.addEventListener('click', function() {
+        if (pinnedNode) {
+          pinnedNode = null;
+          nodeElems.forEach(function(n) { n.classList.remove('pinned-source'); });
+          clearHighlight();
+        }
+      });
+
+      const panel = document.getElementById('panel');
+      panel.addEventListener('mouseleave', function(e) {
+        clearSpotlightStyle();
+        if (pinnedNode) return;
+        const to = e.relatedTarget;
+        if (to && document.getElementById('graph').contains(to)) return;
+        clearHighlight();
+      });
+    }
+  </script>
+</body>
+</html>

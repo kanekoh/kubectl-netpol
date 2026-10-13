@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: payment-api
+  namespace: payments
+  labels:
+    app: payment-api
+spec:
+  containers:
+  - name: app
+    image: registry.access.redhat.com/ubi9/ubi-minimal
+    command: ["sleep", "3600"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gateway
+  namespace: payment-gateway
+  labels:
+    app: gateway
+spec:
+  containers:
+  - name: app
+    image: registry.access.redhat.com/ubi9/ubi-minimal
+    command: ["sleep", "3600"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: legacy-app
+  namespace: legacy-system
+  labels:
+    app: legacy-app
+spec:
+  containers:
+  - name: app
+    image: registry.access.redhat.com/ubi9/ubi-minimal
+    command: ["sleep", "3600"]

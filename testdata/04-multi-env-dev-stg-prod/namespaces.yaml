@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev-frontend
+  labels:
+    kubernetes.io/metadata.name: dev-frontend
+    env: dev
+    tier: frontend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev-backend
+  labels:
+    kubernetes.io/metadata.name: dev-backend
+    env: dev
+    tier: backend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging-frontend
+  labels:
+    kubernetes.io/metadata.name: staging-frontend
+    env: staging
+    tier: frontend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging-backend
+  labels:
+    kubernetes.io/metadata.name: staging-backend
+    env: staging
+    tier: backend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod-frontend
+  labels:
+    kubernetes.io/metadata.name: prod-frontend
+    env: prod
+    tier: frontend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod-backend
+  labels:
+    kubernetes.io/metadata.name: prod-backend
+    env: prod
+    tier: backend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    kubernetes.io/metadata.name: monitoring
+    team: monitoring
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cicd
+  labels:
+    kubernetes.io/metadata.name: cicd
+    team: cicd

@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: team-alpha
+  labels:
+    app: frontend
+spec:
+  containers:
+  - name: app
+    image: registry.access.redhat.com/ubi9/ubi-minimal
+    command: ["sleep", "3600"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backend
+  namespace: team-alpha
+  labels:
+    app: backend
+spec:
+  containers:
+  - name: app
+    image: registry.access.redhat.com/ubi9/ubi-minimal
+    command: ["sleep", "3600"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: team-beta
+  labels:
+    app: frontend
+spec:
+  containers:
+  - name: app
+    image: registry.access.redhat.com/ubi9/ubi-minimal
+    command: ["sleep", "3600"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backend
+  namespace: team-beta
+  labels:
+    app: backend
+spec:
+  containers:
+  - name: app
+    image: registry.access.redhat.com/ubi9/ubi-minimal
+    command: ["sleep", "3600"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: auth
+  namespace: shared-services
+  labels:
+    app: auth
+spec:
+  containers:
+  - name: app
+    image: registry.access.redhat.com/ubi9/ubi-minimal
+    command: ["sleep", "3600"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cache
+  namespace: shared-services
+  labels:
+    app: cache
+spec:
+  containers:
+  - name: app
+    image: registry.access.redhat.com/ubi9/ubi-minimal
+    command: ["sleep", "3600"]

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Network Policy Connectivity</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; background: #f8fafc; }
+    h1 { color: #1e293b; }
+    #graph { background: white; border-radius: 8px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .legend { margin: 1rem 0; font-size: 0.9rem; color: #64748b; }
+    /* Dim unrelated nodes */
+    .node-dimmed { opacity: 0.12 !important; }
+    .node-dimmed > rect,
+    .node-dimmed > circle,
+    .node-dimmed > polygon,
+    .node-dimmed .label,
+    .node-dimmed span { opacity: 0.12 !important; }
+    /* Dim unrelated edges (paths, arrowheads, and edge labels) */
+    .edge-dimmed,
+    path.edge-dimmed,
+    g.edgePath.edge-dimmed,
+    g.edgeLabel.edge-dimmed {
+      opacity: 0.06 !important;
+    }
+    path.edge-dimmed {
+      stroke-opacity: 0.06 !important;
+    }
+    .pinned-source > rect,
+    .pinned-source > polygon {
+      stroke: #2563eb !important;
+      stroke-width: 3px !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>Network Policy Connectivity</h1>
+  <div class="legend">
+    <strong>&#x2192;</strong> Allow &nbsp;&nbsp;
+    Hover a node to highlight its connections (nodes <em>and</em> lines). Click to pin.
+  </div>
+  <div id="graph">
+    <pre class="mermaid">
+flowchart LR
+
+  subgraph payment_gateway["payment-gateway"]
+    payment_gateway_app_gateway["app=gateway"]
+  end
+  subgraph payments["payments"]
+    payments_app_payment_api["app=payment-api"]
+  end
+
+  payment_gateway_app_gateway -->|"any [NP]"| payments_app_payment_api
+
+  %% Only allowed connections shown. Use -o table for full Allow/Deny matrix.
+
+    </pre>
+  </div>
+
+  <script>
+    // nodeId -> neighbor nodeIds (Allow, bidirectional)
+    const adjacency = {"payment_gateway_app_gateway":["payments_app_payment_api"],"payments_app_payment_api":["payment_gateway_app_gateway"]};
+    // Allow edges in the same order as Mermaid "-->" declarations
+    const edges = [{"src":"payment_gateway_app_gateway","dst":"payments_app_payment_api"}];
+
+    mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
+    mermaid.run({ nodes: document.querySelectorAll('.mermaid') }).then(function() {
+      setupHighlighting();
+    }).catch(function(e) {
+      console.error('Mermaid render error:', e);
+    });
+
+    function extractNodeId(mermaidElemId) {
+      // Mermaid flowchart node IDs: "flowchart-NODEID-N"
+      const m = mermaidElemId.match(/^flowchart-(.+)-\d+$/);
+      return m ? m[1] : mermaidElemId;
+    }
+
+    function collectEdgePaths(svg) {
+      // Mermaid v10 flowchart: paths live under .edgePaths; older: g.edgePath
+      let paths = Array.from(svg.querySelectorAll('.edgePaths path'));
+      if (paths.length === 0) {
+        paths = Array.from(svg.querySelectorAll('g.edgePath path, g.edgePath'));
+      }
+      if (paths.length === 0) {
+        paths = Array.from(svg.querySelectorAll('.edges path, path.flowchart-link'));
+      }
+      return paths;
+    }
+
+    function collectEdgeLabels(svg) {
+      return Array.from(svg.querySelectorAll('g.edgeLabel, .edgeLabels .edgeLabel'));
+    }
+
+    let pinnedNode = null;
+
+    function setupHighlighting() {
+      const svg = document.querySelector('#graph svg');
+      if (!svg) return;
+
+      const nodeElems = svg.querySelectorAll('g.node');
+      const edgePaths = collectEdgePaths(svg);
+      const edgeLabels = collectEdgeLabels(svg);
+
+      nodeElems.forEach(function(nodeEl) {
+        const nodeId = extractNodeId(nodeEl.id || '');
+        nodeEl.style.cursor = 'pointer';
+
+        nodeEl.addEventListener('mouseenter', function() {
+          if (pinnedNode) return;
+          highlight(nodeId, nodeElems, edgePaths, edgeLabels);
+        });
+
+        nodeEl.addEventListener('mouseleave', function() {
+          if (pinnedNode) return;
+          clearHighlight(nodeElems, edgePaths, edgeLabels);
+        });
+
+        nodeEl.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (pinnedNode === nodeId) {
+            pinnedNode = null;
+            clearHighlight(nodeElems, edgePaths, edgeLabels);
+            nodeEl.classList.remove('pinned-source');
+          } else {
+            nodeElems.forEach(function(n) { n.classList.remove('pinned-source'); });
+            pinnedNode = nodeId;
+            nodeEl.classList.add('pinned-source');
+            highlight(nodeId, nodeElems, edgePaths, edgeLabels);
+          }
+        });
+      });
+
+      svg.addEventListener('click', function() {
+        if (pinnedNode) {
+          pinnedNode = null;
+          nodeElems.forEach(function(n) { n.classList.remove('pinned-source'); });
+          clearHighlight(nodeElems, edgePaths, edgeLabels);
+        }
+      });
+    }
+
+    function edgeTouchesNode(edge, nodeId) {
+      return edge && (edge.src === nodeId || edge.dst === nodeId);
+    }
+
+    function edgeTouchesFromDom(el, nodeId) {
+      const title = (el.querySelector && el.querySelector('title'))
+        ? el.querySelector('title').textContent
+        : '';
+      const id = el.id || '';
+      const text = title || id;
+      // Common Mermaid title: "src-->dst" or "src -- label --> dst"
+      if (text.indexOf('-->') >= 0) {
+        const parts = text.split('-->');
+        const src = (parts[0] || '').replace(/\s--.*$/, '').trim();
+        const dst = (parts[1] || '').trim();
+        return src === nodeId || dst === nodeId;
+      }
+      // id form L-src-dst-N (src/dst use underscores after sanitizeID)
+      const m = id.match(/^L-(.+)-(.+)-\d+$/);
+      if (m) {
+        return m[1] === nodeId || m[2] === nodeId;
+      }
+      return false;
+    }
+
+    function highlight(nodeId, nodeElems, edgePaths, edgeLabels) {
+      const neighbors = new Set(adjacency[nodeId] || []);
+
+      nodeElems.forEach(function(el) {
+        const id = extractNodeId(el.id || '');
+        el.classList.toggle('node-dimmed', !(id === nodeId || neighbors.has(id)));
+      });
+
+      edgePaths.forEach(function(el, i) {
+        let keep = false;
+        if (i < edges.length) {
+          keep = edgeTouchesNode(edges[i], nodeId);
+        } else {
+          keep = edgeTouchesFromDom(el, nodeId);
+        }
+        el.classList.toggle('edge-dimmed', !keep);
+        // Also mark parent g.edgePath if present
+        if (el.parentElement && el.parentElement.classList.contains('edgePath')) {
+          el.parentElement.classList.toggle('edge-dimmed', !keep);
+        }
+      });
+
+      edgeLabels.forEach(function(el, i) {
+        let keep = false;
+        if (i < edges.length) {
+          keep = edgeTouchesNode(edges[i], nodeId);
+        } else {
+          keep = edgeTouchesFromDom(el, nodeId);
+        }
+        el.classList.toggle('edge-dimmed', !keep);
+      });
+    }
+
+    function clearHighlight(nodeElems, edgePaths, edgeLabels) {
+      nodeElems.forEach(function(el) { el.classList.remove('node-dimmed'); });
+      edgePaths.forEach(function(el) {
+        el.classList.remove('edge-dimmed');
+        if (el.parentElement) el.parentElement.classList.remove('edge-dimmed');
+      });
+      edgeLabels.forEach(function(el) { el.classList.remove('edge-dimmed'); });
+    }
+  </script>
+</body>
+</html>

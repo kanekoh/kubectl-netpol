@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+  labels:
+    kubernetes.io/metadata.name: payments
+    team: payments
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payment-gateway
+  labels:
+    kubernetes.io/metadata.name: payment-gateway
+    team: payment-gateway
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: legacy-system
+  labels:
+    kubernetes.io/metadata.name: legacy-system
+    team: legacy

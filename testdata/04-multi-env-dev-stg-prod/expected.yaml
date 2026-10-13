@@ -1,0 +1,76 @@
+scenario: "04-multi-env-dev-stg-prod"
+description: "Dev/Staging/Prod environments on a single cluster with strict ANP isolation"
+key_insight: "ANP enforces environment boundaries. Cross-env traffic is denied at ANP layer (priority 20) before NetworkPolicy is consulted. BANP catches any remaining unmatched traffic."
+
+tests:
+- from: "dev-frontend/app=frontend"
+  to: "dev-backend/app=backend"
+  port: 8080
+  protocol: TCP
+  expected: allow
+  layer: NetworkPolicy
+  reason: "ANP passes same-env traffic (priority 50) → NP allows dev-frontend to dev-backend:8080"
+
+- from: "dev-frontend/app=frontend"
+  to: "staging-backend/app=backend"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: ANP
+  reason: "isolate-dev ANP (priority 20) denies dev egress to staging"
+
+- from: "dev-frontend/app=frontend"
+  to: "prod-backend/app=backend"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: ANP
+  reason: "isolate-dev ANP (priority 20) denies dev egress to prod"
+
+- from: "staging-frontend/app=frontend"
+  to: "prod-backend/app=backend"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: ANP
+  reason: "isolate-prod ANP (priority 20) denies ingress from staging to prod"
+
+- from: "prod-frontend/app=frontend"
+  to: "prod-backend/app=backend"
+  port: 8080
+  protocol: TCP
+  expected: allow
+  layer: NetworkPolicy
+  reason: "ANP passes same-env traffic (priority 50) → NP allows prod-frontend to prod-backend:8080"
+
+- from: "cicd/app=runner"
+  to: "prod-backend/app=backend"
+  port: 8080
+  protocol: TCP
+  expected: allow
+  layer: ANP
+  reason: "allow-cicd-deploy ANP (priority 10) allows cicd to reach prod on port 8080"
+
+- from: "cicd/app=runner"
+  to: "staging-backend/app=backend"
+  port: 8080
+  protocol: TCP
+  expected: allow
+  layer: ANP
+  reason: "allow-cicd-deploy ANP (priority 10) allows cicd to reach staging on port 8080"
+
+- from: "cicd/app=runner"
+  to: "dev-backend/app=backend"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: BANP
+  reason: "No ANP allows cicd→dev. ANP passes (priority 50). NP dev-backend has no rule for cicd. BANP deny-all-remaining applies."
+
+- from: "monitoring/app=prometheus"
+  to: "prod-backend/app=backend"
+  port: 9090
+  protocol: TCP
+  expected: allow
+  layer: ANP
+  reason: "allow-monitoring ANP (priority 5) always wins for monitoring traffic, regardless of env isolation rules"

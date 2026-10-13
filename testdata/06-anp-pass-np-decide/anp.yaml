@@ -1,0 +1,47 @@
+# Priority 10: hard deny from compromised namespace — no Pass, no chance for NP to override
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: lockdown-compromised
+spec:
+  priority: 10
+  subject:
+    namespaces:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values: [compromised-ns]
+  ingress:
+  - name: deny-from-compromised
+    action: Deny
+    from:
+    - namespaces:
+        matchLabels:
+          role: compromised
+  egress:
+  - name: deny-to-compromised
+    action: Deny
+    to:
+    - namespaces:
+        matchLabels:
+          role: compromised
+---
+# Priority 50: pass all intra-cluster traffic to NetworkPolicy for fine-grained control
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: pass-to-networkpolicy
+spec:
+  priority: 50
+  subject:
+    namespaces: {}
+  ingress:
+  - name: pass-all-ingress
+    action: Pass
+    from:
+    - namespaces: {}
+  egress:
+  - name: pass-all-egress
+    action: Pass
+    to:
+    - namespaces: {}

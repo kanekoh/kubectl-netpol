@@ -1,0 +1,44 @@
+scenario: "02-np-namespace-isolation"
+description: "Strict namespace isolation — intra-namespace allowed, cross-namespace denied"
+key_insight: "Namespace isolation is achieved by combining default-deny with an allow rule scoped to the same namespace."
+
+tests:
+- from: "team-alpha/app=frontend"
+  to: "team-alpha/app=backend"
+  port: 8080
+  protocol: TCP
+  expected: allow
+  layer: NetworkPolicy
+  reason: "allow-intra-namespace NP allows traffic within team-alpha"
+
+- from: "team-alpha/app=frontend"
+  to: "team-beta/app=backend"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: NetworkPolicy
+  reason: "team-beta only allows from team-beta namespace and shared-services"
+
+- from: "shared-services/app=auth"
+  to: "team-alpha/app=backend"
+  port: 8443
+  protocol: TCP
+  expected: allow
+  layer: NetworkPolicy
+  reason: "allow-from-shared NP allows shared-services → backend:8443"
+
+- from: "shared-services/app=auth"
+  to: "team-alpha/app=frontend"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: NetworkPolicy
+  reason: "frontend is selected by NP (allow-intra-namespace) but shared-services is not team-alpha"
+
+- from: "team-alpha/app=backend"
+  to: "team-beta/app=frontend"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: NetworkPolicy
+  reason: "team-beta NP does not allow ingress from team-alpha"

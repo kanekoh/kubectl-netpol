@@ -1,0 +1,22 @@
+# payments namespace has a NetworkPolicy that explicitly allows payment-gateway.
+# Because the pod IS selected by a NetworkPolicy, BANP is never consulted for
+# traffic that the NetworkPolicy already decided on.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-payment-gateway
+  namespace: payments
+spec:
+  podSelector:
+    matchLabels:
+      app: payment-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: payment-gateway
+    ports:
+    - protocol: TCP
+      port: 8443

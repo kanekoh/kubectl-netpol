@@ -1,0 +1,37 @@
+# Incident response: hard quarantine. Applied immediately by cluster admin.
+# This overrides any existing NetworkPolicy allow rules.
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: quarantine-lockdown
+spec:
+  priority: 5
+  subject:
+    namespaces:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values: [quarantine]
+  ingress:
+  - name: deny-ingress-from-quarantine
+    action: Deny
+    from:
+    - namespaces:
+        matchLabels:
+          status: quarantined
+---
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: quarantine-egress-lockdown
+spec:
+  priority: 5
+  subject:
+    namespaces:
+      matchLabels:
+        status: quarantined
+  egress:
+  - name: deny-all-egress-from-quarantine
+    action: Deny
+    to:
+    - namespaces: {}

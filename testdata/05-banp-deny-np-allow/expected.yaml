@@ -1,0 +1,64 @@
+scenario: "05-banp-deny-np-allow"
+description: "BANP denies cross-namespace traffic, but NetworkPolicy explicitly allows a specific source"
+key_insight: |
+  NetworkPolicy is evaluated BEFORE BANP. If a pod is selected by a NetworkPolicy and that
+  policy allows the traffic, BANP is never reached for that specific flow.
+  BANP only applies to pods NOT covered by any NetworkPolicy decision.
+
+  payments/payment-api IS selected by a NP → NP makes the decision
+  legacy-system/legacy-app is NOT selected by any NP → BANP makes the decision
+
+tests:
+- from: "payment-gateway/app=gateway"
+  to: "payments/app=payment-api"
+  port: 8443
+  protocol: TCP
+  expected: allow
+  layer: NetworkPolicy
+  reason: |
+    NP allow-payment-gateway matches. NP is evaluated before BANP.
+    Even though BANP would deny this, NP's Allow decision takes precedence.
+
+- from: "payment-gateway/app=gateway"
+  to: "payments/app=payment-api"
+  port: 9999
+  protocol: TCP
+  expected: deny
+  layer: NetworkPolicy
+  reason: |
+    payments pod IS selected by NP. Port 9999 has no matching ingress rule.
+    NP default-deny applies (pod selected but no rule matches).
+    BANP is NOT reached because NP already decided: Deny.
+
+- from: "legacy-system/app=legacy-app"
+  to: "payments/app=payment-api"
+  port: 8443
+  protocol: TCP
+  expected: deny
+  layer: NetworkPolicy
+  reason: |
+    payments pod IS selected by NP. legacy-system is not in the allow rule.
+    NP default-deny applies. BANP not reached.
+
+- from: "payment-gateway/app=gateway"
+  to: "legacy-system/app=legacy-app"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: BANP
+  reason: |
+    legacy-system/legacy-app is NOT selected by any NetworkPolicy.
+    NP layer is skipped entirely. BANP deny-cross-namespace applies.
+    This is BANP working as intended: protect unguarded namespaces.
+
+- from: "legacy-system/app=legacy-app"
+  to: "legacy-system/app=legacy-app"
+  port: 8080
+  protocol: TCP
+  expected: allow
+  layer: default
+  reason: |
+    Same pod, same namespace. No NP in legacy-system. No ANP.
+    BANP rule matches namespaces: {} which includes legacy itself,
+    but intra-pod traffic typically bypasses network policies.
+    In practice this depends on CNI implementation.

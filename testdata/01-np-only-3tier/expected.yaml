@@ -1,0 +1,52 @@
+scenario: "01-np-only-3tier"
+description: "Classic 3-tier app using NetworkPolicy only"
+key_insight: "Pods selected by a NetworkPolicy get default-deny. Only explicitly allowed sources can reach them."
+
+tests:
+- from: "frontend/app=web"
+  to: "backend/app=api"
+  port: 8080
+  protocol: TCP
+  expected: allow
+  layer: NetworkPolicy
+  reason: "allow-from-frontend NP matches"
+
+- from: "frontend/app=web"
+  to: "backend/app=api"
+  port: 9999
+  protocol: TCP
+  expected: deny
+  layer: NetworkPolicy
+  reason: "backend pod is selected by NP but port 9999 has no ingress rule"
+
+- from: "frontend/app=web"
+  to: "database/app=postgres"
+  port: 5432
+  protocol: TCP
+  expected: deny
+  layer: NetworkPolicy
+  reason: "database NP only allows ingress from backend namespace, not frontend"
+
+- from: "backend/app=api"
+  to: "database/app=postgres"
+  port: 5432
+  protocol: TCP
+  expected: allow
+  layer: NetworkPolicy
+  reason: "allow-from-backend NP matches"
+
+- from: "database/app=postgres"
+  to: "backend/app=api"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: NetworkPolicy
+  reason: "backend NP only allows ingress from frontend namespace"
+
+- from: "frontend/app=web"
+  to: "frontend/app=web"
+  port: 8080
+  protocol: TCP
+  expected: allow
+  layer: default
+  reason: "frontend has no NetworkPolicy — default allow"

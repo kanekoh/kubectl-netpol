@@ -1,0 +1,59 @@
+scenario: "06-anp-pass-np-decide"
+description: "ANP uses Pass action to delegate traffic decisions to NetworkPolicy"
+key_insight: |
+  ANP's Pass action explicitly hands off the decision to the next layer (NetworkPolicy).
+  This is useful when cluster admins want to establish baseline rules (e.g., hard deny
+  for compromised namespaces) but let namespace owners control their own policies.
+  The compromised namespace is hard-denied by ANP before Pass can apply.
+
+tests:
+- from: "api-gateway/app=gateway"
+  to: "services/app=svc"
+  port: 8080
+  protocol: TCP
+  expected: allow
+  layer: NetworkPolicy
+  reason: |
+    lockdown-compromised ANP (priority 10) does not match api-gateway → services.
+    pass-to-networkpolicy ANP (priority 50) passes this traffic.
+    NP allow-from-api-gateway allows api-gateway:8080. Result: ALLOW.
+
+- from: "api-gateway/app=gateway"
+  to: "internal/app=internal-app"
+  port: 9090
+  protocol: TCP
+  expected: deny
+  layer: NetworkPolicy
+  reason: |
+    ANP passes (priority 50). NP in internal only allows ingress from services,
+    not from api-gateway. Pod IS selected by NP → NP default deny applies.
+
+- from: "services/app=svc"
+  to: "internal/app=internal-app"
+  port: 9090
+  protocol: TCP
+  expected: allow
+  layer: NetworkPolicy
+  reason: |
+    ANP passes. NP allow-from-services allows services:9090. Result: ALLOW.
+
+- from: "compromised-ns/app=bad-pod"
+  to: "services/app=svc"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: ANP
+  reason: |
+    lockdown-compromised ANP (priority 10) denies ingress FROM compromised-ns to all other namespaces.
+    This is evaluated BEFORE pass-to-networkpolicy (priority 50). ANP Deny wins.
+    Even if NP had an allow rule for compromised-ns, it would never be reached.
+
+- from: "api-gateway/app=gateway"
+  to: "compromised-ns/app=bad-pod"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: ANP
+  reason: |
+    lockdown-compromised ANP denies egress TO compromised-ns from all other namespaces.
+    ANP Deny wins before NetworkPolicy is checked.

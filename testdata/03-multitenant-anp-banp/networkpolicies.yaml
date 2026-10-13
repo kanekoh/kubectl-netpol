@@ -1,0 +1,41 @@
+# tenant-a-db: allow ingress from tenant-a-app on port 5432
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-tenant-a-app
+  namespace: tenant-a-db
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: tenant-a-app
+    ports:
+    - protocol: TCP
+      port: 5432
+---
+# tenant-b-db: allow ingress from tenant-b-app on port 5432
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-tenant-b-app
+  namespace: tenant-b-db
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: tenant-b-app
+    ports:
+    - protocol: TCP
+      port: 5432

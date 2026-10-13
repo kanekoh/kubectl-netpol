@@ -1,0 +1,68 @@
+scenario: "03-multitenant-anp-banp"
+description: "Multi-tenant cluster with ANP cluster rules, NP tenant rules, BANP safety net"
+key_insight: "ANP is evaluated first. Monitoring and ingress-nginx get cluster-wide access via ANP. Cross-tenant traffic is blocked by ANP before NetworkPolicy is checked. BANP prevents egress to internet."
+
+tests:
+- from: "monitoring/app=prometheus"
+  to: "tenant-a-app/app=api"
+  port: 8080
+  protocol: TCP
+  expected: allow
+  layer: ANP
+  reason: "allow-monitoring ANP (priority 10) allows monitoring to reach all namespaces"
+
+- from: "monitoring/app=prometheus"
+  to: "tenant-b-db/app=postgres"
+  port: 5432
+  protocol: TCP
+  expected: allow
+  layer: ANP
+  reason: "allow-monitoring ANP allows monitoring to all namespaces including db tier"
+
+- from: "ingress-nginx/app=nginx"
+  to: "tenant-a-app/app=api"
+  port: 80
+  protocol: TCP
+  expected: allow
+  layer: ANP
+  reason: "allow-ingress-nginx ANP (priority 20) allows ingress-nginx to app namespaces on port 80"
+
+- from: "ingress-nginx/app=nginx"
+  to: "tenant-a-app/app=api"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: ANP
+  reason: "allow-ingress-nginx ANP only covers ports 80 and 443; port 8080 is not matched, falls through to pass-to-networkpolicy but tenant-a-app has no NP allowing ingress-nginx on 8080, then BANP has no ingress deny for in-cluster — effectively no rule allows it"
+
+- from: "tenant-a-app/app=api"
+  to: "tenant-b-app/app=api"
+  port: 8080
+  protocol: TCP
+  expected: deny
+  layer: ANP
+  reason: "deny-cross-tenant-a ANP (priority 30) explicitly denies tenant-a egress to tenant-b"
+
+- from: "tenant-a-app/app=api"
+  to: "tenant-a-db/app=postgres"
+  port: 5432
+  protocol: TCP
+  expected: allow
+  layer: NetworkPolicy
+  reason: "ANP passes (priority 50) → NP allow-from-tenant-a-app allows port 5432"
+
+- from: "tenant-a-app/app=api"
+  to: "tenant-b-db/app=postgres"
+  port: 5432
+  protocol: TCP
+  expected: deny
+  layer: ANP
+  reason: "deny-cross-tenant-a ANP (priority 30) blocks tenant-a egress to tenant-b before NP is checked"
+
+- from: "tenant-a-app/app=api"
+  to: "8.8.8.8"
+  port: 443
+  protocol: TCP
+  expected: deny
+  layer: BANP
+  reason: "ANP passes for external traffic, NP has no external egress rule, BANP deny-external-egress applies"

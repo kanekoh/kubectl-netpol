@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-gateway
+  labels:
+    kubernetes.io/metadata.name: api-gateway
+    role: gateway
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: services
+  labels:
+    kubernetes.io/metadata.name: services
+    role: services
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: internal
+  labels:
+    kubernetes.io/metadata.name: internal
+    role: internal
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: compromised-ns
+  labels:
+    kubernetes.io/metadata.name: compromised-ns
+    role: compromised

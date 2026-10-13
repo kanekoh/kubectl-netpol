@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-a-app
+  labels:
+    kubernetes.io/metadata.name: tenant-a-app
+    tenant: a
+    env: app
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-a-db
+  labels:
+    kubernetes.io/metadata.name: tenant-a-db
+    tenant: a
+    env: db
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-b-app
+  labels:
+    kubernetes.io/metadata.name: tenant-b-app
+    tenant: b
+    env: app
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-b-db
+  labels:
+    kubernetes.io/metadata.name: tenant-b-db
+    tenant: b
+    env: db
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    kubernetes.io/metadata.name: monitoring
+    team: monitoring
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    kubernetes.io/metadata.name: ingress-nginx
+    team: ingress

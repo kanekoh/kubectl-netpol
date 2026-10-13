@@ -1,0 +1,14 @@
+# BANP: deny all cross-namespace ingress as a cluster-wide catch-all.
+# This would block payment-gateway → payments — but NetworkPolicy is evaluated first.
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: BaselineAdminNetworkPolicy
+metadata:
+  name: default
+spec:
+  subject:
+    namespaces: {}
+  ingress:
+  - name: deny-cross-namespace
+    action: Deny
+    from:
+    - namespaces: {}

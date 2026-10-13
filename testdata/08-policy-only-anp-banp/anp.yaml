@@ -1,0 +1,83 @@
+# Policy-only fixture: no Pods / Namespaces — zones must be synthesized from selectors.
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: allow-from-platform
+spec:
+  priority: 20
+  subject:
+    namespaces:
+      matchLabels:
+        user-project: "true"
+  ingress:
+    - name: allow-from-platform-namespaces
+      action: Allow
+      from:
+        - namespaces:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values:
+                  - openshift-ingress
+                  - openshift-user-workload-monitoring
+---
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: allow-egress-infra
+spec:
+  priority: 21
+  subject:
+    namespaces:
+      matchLabels:
+        user-project: "true"
+  egress:
+    - name: allow-dns
+      action: Allow
+      to:
+        - namespaces:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-dns
+    - name: allow-apiserver
+      action: Allow
+      to:
+        - networks:
+            - 172.20.0.1/32
+---
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: deny-staging-to-dev
+spec:
+  priority: 10
+  subject:
+    namespaces:
+      matchLabels:
+        user-project: "true"
+        environment: dev
+  ingress:
+    - name: deny-from-staging
+      action: Deny
+      from:
+        - namespaces:
+            matchLabels:
+              environment: staging
+---
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: AdminNetworkPolicy
+metadata:
+  name: deny-dev-to-staging
+spec:
+  priority: 11
+  subject:
+    namespaces:
+      matchLabels:
+        user-project: "true"
+        environment: staging
+  ingress:
+    - name: deny-from-dev
+      action: Deny
+      from:
+        - namespaces:
+            matchLabels:
+              environment: dev
