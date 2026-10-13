@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hkaneko/kubectl-netpol/pkg/analyzer"
+	"github.com/kanekoh/kubectl-netpol/pkg/analyzer"
 )
 
 type htmlEdge struct {

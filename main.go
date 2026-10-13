@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hkaneko/kubectl-netpol/cmd"
+	"github.com/kanekoh/kubectl-netpol/cmd"
 )
 
 func main() {

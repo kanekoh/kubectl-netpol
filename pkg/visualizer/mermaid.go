@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hkaneko/kubectl-netpol/pkg/analyzer"
+	"github.com/kanekoh/kubectl-netpol/pkg/analyzer"
 )
 
 // os is used for stderr warnings in RenderMermaidFull

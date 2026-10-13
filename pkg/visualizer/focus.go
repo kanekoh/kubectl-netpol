@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hkaneko/kubectl-netpol/pkg/analyzer"
+	"github.com/kanekoh/kubectl-netpol/pkg/analyzer"
 )
 
 // ApplyFocus filters m to nodes matching selector and their direct Allow neighbors.

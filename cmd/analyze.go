@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/hkaneko/kubectl-netpol/pkg/analyzer"
-	"github.com/hkaneko/kubectl-netpol/pkg/visualizer"
+	"github.com/kanekoh/kubectl-netpol/pkg/analyzer"
+	"github.com/kanekoh/kubectl-netpol/pkg/visualizer"
 )
 
 type analyzeOptions struct {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/hkaneko/kubectl-netpol/pkg/analyzer"
+	"github.com/kanekoh/kubectl-netpol/pkg/analyzer"
 )
 
 const (

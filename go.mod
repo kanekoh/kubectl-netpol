@@ -1,4 +1,4 @@
-module github.com/hkaneko/kubectl-netpol
+module github.com/kanekoh/kubectl-netpol
 
 go 1.21
 

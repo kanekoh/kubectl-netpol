@@ -1,35 +1,50 @@
 # kubectl-netpol
 
-Kubernetes / OpenShift の **NetworkPolicy**、**AdminNetworkPolicy (ANP)**、**BaselineAdminNetworkPolicy (BANP)** を静的に評価し、ワークロード（ラベル単位のゾーン）間の接続可否を表や図で表示する CLI です。
+A **kubectl plugin** for static analysis and visualization of Kubernetes network policy.
 
-クラスタに接続する **ライブモード** と、YAML を置いたディレクトリだけで動く **オフラインモード**（`--from-dir`）の両方に対応しています。
+It evaluates **NetworkPolicy**, **AdminNetworkPolicy (ANP)**, and **BaselineAdminNetworkPolicy (BANP)** using the three-layer model (ANP → NetworkPolicy → BANP), groups workloads into zones (by namespace and pod labels), and shows **who can talk to whom** as a matrix, diagram, or report—not as a flat list of IPs and ports.
 
-設計の背景は [ARCHITECTURE.md](./ARCHITECTURE.md)、テスト用マニフェストは [testdata/README.md](./testdata/README.md) を参照してください。
+Works **against a live cluster** or **offline** from a directory of YAML (`--from-dir`), so you can use it in PR review and CI the same way you use other policy tooling.
 
-## できること
+## Where this fits
 
-| コマンド | 説明 |
-|----------|------|
-| `analyze` | ANP → NetworkPolicy → BANP の 3 層モデルでゾーン間マトリクスを生成（table / mermaid / html / json） |
-| `verify` | 層の上書きや「見えなくなった Allow」など、レビュー向けの**助言**チェック（スキーマ検証ではありません） |
+The ecosystem has several network-policy tools; they solve different problems:
 
-`probe`（実 Pod による疎通テスト）は [ARCHITECTURE.md](./ARCHITECTURE.md) に記載の将来機能です。現時点の実装には含まれません。
+| Focus | Examples | **kubectl-netpol** |
+|--------|----------|-------------------|
+| Policy lint / risk / invalid rules | [np-guard / netpol-analyzer](https://github.com/np-guard/netpol-analyzer) and similar validators | Not a YAML linter |
+| Reachability at **workload / zone** level | — | **Zone connectivity matrix** + Mermaid / HTML / JSON |
+| Admin policy API (ANP / BANP) | Varies by tool | **First-class** 3-layer evaluation |
+| Offline / GitOps | Some validators | **`--from-dir`** including policy-only fixtures |
 
-## 前提
+Use it when you want to answer: *“Given these policies, which app zones are allowed to connect, and which layer decided?”*
 
-- **ライブモード**: 有効な kubeconfig（`kubectl` / `oc` が使えるコンテキスト）
-- **ANP / BANP**: クラスタに [Kubernetes Network Policy API](https://network-policy-api.sigs.k8s.io/) の CRD が入っている場合のみ取得・評価（未導入なら NetworkPolicy 中心で動作）
-- **オフラインモード**: `pods.yaml` / `namespaces.yaml` / 各ポリシー YAML をディレクトリに配置（ポリシーだけのディレクトリでもゾーン合成可能 — `testdata/08-policy-only-anp-banp`）
+Design notes: [ARCHITECTURE.md](./ARCHITECTURE.md). Example manifests: [testdata/README.md](./testdata/README.md).
 
-## インストール
+## Commands
 
-### 1. GitHub Releases（推奨）
+| Command | Description |
+|---------|-------------|
+| `analyze` | Build a zone connectivity matrix (outputs: `table`, `mermaid`, `html`, `json`) |
+| `verify` | Advisory checks (shadowed allows, layer overrides)—for human review, not schema validation |
 
-タグ `v*` を push すると [GitHub Actions](./.github/workflows/release.yml) が **macOS arm64（Apple Silicon）** と **macOS amd64（Intel）** のバイナリをビルドし、Release に添付します。
+Live connectivity testing (`probe`) is described in [ARCHITECTURE.md](./ARCHITECTURE.md) as a planned companion; it is **not** implemented yet.
 
-1. [Releases](https://github.com/hkaneko/kubectl-netpol/releases) から自分の Mac 用アーカイブを取得
-2. 展開する（アーカイブ内に `kubectl-netpol` と `oc-netpol` へのシンボリックリンクが入っています）
-3. 両方を PATH のあるディレクトリに配置（例: `/usr/local/bin`）
+## Requirements
+
+- **Live mode**: a working kubeconfig (`kubectl` or `oc` context)
+- **ANP / BANP**: fetched only if [Network Policy API](https://network-policy-api.sigs.k8s.io/) CRDs are installed; otherwise analysis is NetworkPolicy-centric
+- **Offline mode**: YAML under a directory (`pods.yaml`, `namespaces.yaml`, policies, etc.). Policy-only dirs are supported (see `testdata/08-policy-only-anp-banp`)
+
+## Install
+
+### GitHub Releases (macOS)
+
+Pushing a `v*` tag runs [release.yml](./.github/workflows/release.yml) and attaches **darwin/arm64** and **darwin/amd64** archives.
+
+1. Download an archive from [Releases](https://github.com/kanekoh/kubectl-netpol/releases)
+2. Extract (contains `kubectl-netpol` and a `oc-netpol` symlink)
+3. Install both names on your `PATH` (e.g. `/usr/local/bin`)
 
 ```bash
 tar xzf kubectl-netpol_v0.1.0_darwin_arm64.tar.gz
@@ -37,92 +52,84 @@ chmod +x kubectl-netpol
 sudo mv kubectl-netpol oc-netpol /usr/local/bin/
 ```
 
-初回リリース例:
+Maintainers: `git tag v0.1.0 && git push origin v0.1.0`
+
+### Build from source
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-### 2. Go からビルド / インストール
-
-```bash
-git clone https://github.com/hkaneko/kubectl-netpol.git
+git clone https://github.com/kanekoh/kubectl-netpol.git
 cd kubectl-netpol
 go build -o kubectl-netpol .
-# または
-go install github.com/hkaneko/kubectl-netpol@latest
+# or install to $GOPATH/bin or $GOBIN
+go install .
+# or, after a tagged release is on the module proxy:
+go install github.com/kanekoh/kubectl-netpol@latest
 ```
 
-## kubectl / oc プラグインとしての呼び方
+## kubectl and OpenShift `oc`
 
-[kubectl プラグイン](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/)は、PATH 上の `kubectl-<名前>` として `kubectl <名前>` で実行できます。OpenShift の `oc` も同様に `oc-<名前>` → `oc <名前>` です（upstream / 経験知: バイナリ名がプラグイン名の源泉）。
+[kubectl plugins](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/) are executables named `kubectl-<name>` on your `PATH`, invoked as `kubectl <name>`. OpenShift uses the same pattern with `oc-<name>` → `oc <name>`.
 
-| 配置するファイル名 | 実行例 |
-|--------------------|--------|
+| Binary on `PATH` | Example |
+|------------------|---------|
 | `kubectl-netpol` | `kubectl netpol analyze` |
-| `oc-netpol`（同一バイナリのリンク可） | `oc netpol analyze` |
+| `oc-netpol` (symlink to the same file is fine) | `oc netpol analyze` |
 
-直接実行も可能です: `kubectl-netpol analyze ...`
+You can also run `kubectl-netpol analyze` directly.
 
-### ライブクラスタで分析
+### Live cluster
 
 ```bash
-# 全 Namespace（デフォルト）
 kubectl netpol analyze
-
-# Namespace を絞る
 kubectl netpol analyze -n frontend
 
-# OpenShift（ログイン済みのコンテキスト）
 oc netpol analyze
 oc netpol analyze -n my-project
 
-# 別 kubeconfig
 kubectl netpol analyze --kubeconfig ~/.kube/other-config
 ```
 
-### オフライン（Git / CI でポリシーだけ検証）
+### Offline (Git / CI)
 
 ```bash
 kubectl netpol analyze --from-dir testdata/01-np-only-3tier -o table
 kubectl netpol analyze --from-dir testdata/08-policy-only-anp-banp -o html > report.html
 ```
 
-### 出力形式（`analyze -o`）
+### Output formats (`analyze -o`)
 
-| 値 | 用途 |
-|----|------|
-| `table` | ターミナル向けマトリクス（デフォルト） |
-| `mermaid` | Allow のみの Mermaid 図 |
-| `mermaid-full` | Deny 等も含む Mermaid |
-| `html` | 単一 HTML レポート（ブラウザで開く） |
-| `json` | 機械可読な接続マップ |
+| Value | Use |
+|-------|-----|
+| `table` | Terminal matrix (default) |
+| `mermaid` | Mermaid diagram (allow edges only) |
+| `mermaid-full` | Mermaid including deny-related detail |
+| `html` | Single-file HTML report |
+| `json` | Machine-readable connectivity map |
 
-図向けの `--focus`（`ns=...` / `app=...` / `namespace/key=value`）は `mermaid` / `mermaid-full` / `html` で有効です。
+`--focus` (`ns=...`, `app=...`, `namespace/key=value`) applies to `mermaid`, `mermaid-full`, and `html`.
 
 ```bash
 kubectl netpol analyze --from-dir testdata/03-multitenant-anp-banp \
   -o mermaid --focus ns=monitoring
 ```
 
-### よく使うフラグ
+### Common flags
 
 ```bash
-kubectl netpol analyze --label-key app    # ゾーン分割に使う Pod ラベル（デフォルト: app）
-kubectl netpol analyze --all              # ポリシー未参照のグループも表示
+kubectl netpol analyze --label-key app   # zone grouping label (default: app)
+kubectl netpol analyze --all             # include groups not referenced by policies
 kubectl netpol verify --from-dir testdata/07-anp-deny-override
 kubectl netpol verify --from-dir path/to/yaml --warnings-only
-kubectl netpol verify --strict            # Warning があると exit 1
+kubectl netpol verify --strict           # exit 1 if any Warning
 ```
 
-## 開発
+## Development
 
 ```bash
 go test ./...
 go run . analyze --from-dir testdata/01-np-only-3tier -o table
 ```
 
-## ライセンス
+## License
 
-リポジトリに LICENSE が無い場合は利用前に作者に確認してください。
+No `LICENSE` file is included yet; contact the maintainer before redistribution if you need explicit terms.
